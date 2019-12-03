@@ -5,6 +5,10 @@ var template = require('./lib/template');
 var mysql = require('mysql');
 var bodyParser = require('body-parser');
 var compression = require('compression');
+var passport = require('./passport/localStrategy');
+var session = require('express-session');
+var passportConfig=require('./passport');
+var ejs = require('ejs');
 var db = mysql.createConnection({
   host     : 'localhost',
   user     : 'root',
@@ -13,9 +17,71 @@ var db = mysql.createConnection({
 });
 db.connect();
 
-app.use(express.static('public'));
-app.use(bodyParser.urlencoded({ extended: false }));
+//app.use(express.static('public'));
+//app.use(bodyParser.urlencoded({ extended: false }));
 app.use(compression());
+app.use(express.urlencoded({ extended: false }));
+app.use(passport.initialize());                    // passport 동작
+app.use(passport.session());  
+
+app.use(
+  session({
+    resave: false,
+    saveUninitialized: false,
+    secret: "pyh",
+    cookie: {
+      httpOnly: true,
+      secure: false
+    }
+  })
+);
+app.use(express.urlencoded({ extended: false }));
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "view"));
+
+app.get("/", (req, res) => {
+  res.render("index");
+});
+
+passportConfig(passport);
+
+app.post("/login", (req, res, next) => {
+  passport.authenticate("local", (authError, user, info) => {
+    return req.login(user, loginError => {
+      if (loginError) {
+        console.error(loginError);
+      }
+    });
+  })(req, res, next);
+
+  res.redirect("/success");
+});
+
+app.get("/success", (req, res, next) => {
+  res.render("success", {
+    user: req.user
+  });
+});
+// const local = require("./localStrategy");
+
+// module.exports = passport => {
+//   passport.serializeUser((user, done) => {   // req.login()에서 넘겨준 user값
+//     done(null, user.id);                     // user에서 id만 세션에 저장
+//   });
+
+//   // 메모리에 한번만 저장
+//   passport.deserializeUser((id, done) => {  // 매개변수 id는 세션에 저장됨 값(req.session.passport.user)
+//     done(null, id);
+//   });
+
+//   local(passport);
+// };
+
+
+
 
 //home
 app.get('/', function(req, res) {
@@ -24,7 +90,7 @@ app.get('/', function(req, res) {
     var description = 'hello, node';
     var list = template.list(posts);
     var html = template.HTML(title,
-      `<p><a href="/login">LOGIN</a></p>
+      `<p><a href="/login_process">LOGIN</a></p>
       <p><a href="/join">JOIN</a></p>`,list,
     `<h2>${title}</h2>${description}`,
     `<a href="/create">create</a>`);
@@ -144,20 +210,20 @@ app.post('/join_process',function(req,res){
   });
 });
 
-app.get('/login',function(req,res){
-  var title = "로그인"
-  var html = template.HTML(title,`<form action ="/login_process" method="post"> 
-  <p><input type="text" name="id" placeholder="아이디를 입력하세요"><p>
-  <p><input type="password" name="pwd" placeholder="비밀번호를 입력하세요"><p>
-  <button id="login_button">로그인</button> 
-  </form>`,"","","","");
-  res.send(html);
-});
+// app.get('/login_process',function(req,res){
+//   var title = "로그인"
+//   var html = template.HTML(title,`<form action ="/login" method="post"> 
+//   <p><input type="text" name="id" placeholder="아이디를 입력하세요"><p>
+//   <p><input type="password" name="pwd" placeholder="비밀번호를 입력하세요"><p>
+//   <button id="login_button">로그인</button> 
+//   </form>`,"","","","");
+//   res.send(html);
+// });
 
-app.post('/login_process',function(req,res){
-  var body = req.body;
+// app.post('/login_process',function(req,res){
+//   var body = req.body;
   
-});
+// });
 
 app.listen(port, function() {
   console.log('connected');  
